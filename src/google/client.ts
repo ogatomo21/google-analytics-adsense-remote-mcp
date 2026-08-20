@@ -28,7 +28,7 @@ export class GoogleApiClient {
     const accessToken = await getGoogleAccessToken(this.config, this.fetcher);
     const url = new URL(request.path, request.host);
     for (const [key, value] of Object.entries(request.query ?? {})) url.searchParams.set(key, value);
-    const response = await this.fetcher(url, {
+    const response = await this.fetcher.call(globalThis, url, {
       method: request.method,
       headers: {
         authorization: `Bearer ${accessToken}`,

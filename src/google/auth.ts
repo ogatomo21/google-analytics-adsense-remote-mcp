@@ -19,7 +19,7 @@ export async function getGoogleAccessToken(config: Pick<AppConfig, "googleClient
     refresh_token: config.googleRefreshToken,
     grant_type: "refresh_token",
   });
-  const response = await fetcher("https://oauth2.googleapis.com/token", {
+  const response = await fetcher.call(globalThis, "https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
     body,
