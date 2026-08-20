@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "google-analytics-adsense-remote-mcp",
+  "name": "ga4-adsense-mcp-worker",
   "main": "src/index.ts",
   "compatibility_date": "2026-08-21",
   "compatibility_flags": ["nodejs_compat"],
