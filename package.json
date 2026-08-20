@@ -1,5 +1,5 @@
 {
-  "name": "google-analytics-adsense-remote-mcp",
+  "name": "ga4-adsense-mcp-worker",
   "version": "0.1.0",
   "private": true,
   "type": "module",
