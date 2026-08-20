@@ -1,0 +1,74 @@
+import type { McpServer } from "@modelcontextprotocol/server";
+import { z } from "zod";
+
+import type { GoogleApiClient } from "../../google/client";
+import { safeErrorMessage } from "../../google/client";
+import { jsonToolResult, querySchema, readOnlyAnnotations, toolError } from "../shared";
+
+const accountNameSchema = z.string().trim().regex(/^accounts\/[A-Za-z0-9_-]+$/).max(300);
+const pathSegmentSchema = z.string().regex(/^[A-Za-z0-9_:-]+$/).max(300);
+
+export const adsenseGenerateReportInputSchema = z.object({
+  account: accountNameSchema,
+  query: z.object({
+    startDate: z.string().trim().min(1).max(30),
+    endDate: z.string().trim().min(1).max(30),
+    metrics: z.array(z.string().trim().min(1).max(100)).min(1).max(20),
+    dimensions: z.array(z.string().trim().min(1).max(100)).max(10).optional(),
+    filters: z.array(z.string().trim().min(1).max(500)).max(20).optional(),
+    orderBy: z.array(z.string().trim().min(1).max(200)).max(10).optional(),
+    limit: z.number().int().min(1).max(10_000).optional(),
+    startIndex: z.number().int().min(0).max(1_000_000).optional(),
+    locale: z.string().trim().min(2).max(30).optional(),
+    currencyCode: z.string().trim().regex(/^[A-Z]{3}$/).optional(),
+  }).strict(),
+}).strict();
+
+export const adsenseReadInputSchema = z.object({
+  pathSegments: z.array(pathSegmentSchema).min(1).max(12).refine((segments) => segments[0] === "accounts", "must begin with accounts"),
+  query: querySchema,
+}).strict();
+
+export function registerAdSenseTools(server: McpServer, client: GoogleApiClient): void {
+  server.registerTool("adsense_generate_report", { description: "Generate an AdSense v2 earnings or performance report for an accessible account.", inputSchema: adsenseGenerateReportInputSchema, annotations: readOnlyAnnotations }, async ({ account, query }) => {
+    try {
+      return jsonToolResult(await client.request({
+        host: "https://adsense.googleapis.com",
+        path: `/v2/${account}/reports:generate`,
+        method: "GET",
+        query: encodeReportQuery(query),
+      }));
+    } catch (error) {
+      return toolError(safeErrorMessage(error));
+    }
+  });
+
+  server.registerTool("adsense_read", { description: "Read any AdSense Management API v2 resource beneath accounts. Only GET requests to the fixed AdSense API host are allowed.", inputSchema: adsenseReadInputSchema, annotations: readOnlyAnnotations }, async ({ pathSegments, query }) => {
+    try {
+      return jsonToolResult(await client.request({
+        host: "https://adsense.googleapis.com",
+        path: `/v2/${pathSegments.join("/")}`,
+        method: "GET",
+        ...(query === undefined ? {} : { query }),
+      }));
+    } catch (error) {
+      return toolError(safeErrorMessage(error));
+    }
+  });
+}
+
+function encodeReportQuery(query: z.infer<typeof adsenseGenerateReportInputSchema>["query"]): Record<string, string> {
+  const output: Record<string, string> = {
+    startDate: query.startDate,
+    endDate: query.endDate,
+    metrics: query.metrics.join(","),
+  };
+  if (query.dimensions) output.dimensions = query.dimensions.join(",");
+  if (query.filters) output.filters = query.filters.join(",");
+  if (query.orderBy) output.orderBy = query.orderBy.join(",");
+  if (query.limit !== undefined) output.limit = String(query.limit);
+  if (query.startIndex !== undefined) output.startIndex = String(query.startIndex);
+  if (query.locale) output.locale = query.locale;
+  if (query.currencyCode) output.currencyCode = query.currencyCode;
+  return output;
+}

@@ -1,0 +1,53 @@
+{
+  "name": "google-analytics-adsense-remote-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Read-only GA4 and AdSense Remote MCP server for Cloudflare Workers.",
+  "packageManager": "pnpm@10.14.0",
+  "cloudflare": {
+    "bindings": {
+      "CF_ACCESS_TEAM_DOMAIN": {
+        "description": "Cloudflare Zero Trust の Team Domain を `https://<team>.cloudflareaccess.com` 形式で入力します。"
+      },
+      "CF_ACCESS_AUD": {
+        "description": "デプロイ後に作成する Cloudflare Access MCP Server Application の Audience (AUD) Tag を入力します。"
+      },
+      "GOOGLE_CLIENT_ID": {
+        "description": "Google Cloud の OAuth client ID。`analytics.readonly` と `adsense.readonly` を承認したものを Secret として入力します。"
+      },
+      "GOOGLE_CLIENT_SECRET": {
+        "description": "Google Cloud の OAuth client secret。Secret として入力します。"
+      },
+      "GOOGLE_REFRESH_TOKEN": {
+        "description": "Google OAuth の refresh token。`analytics.readonly` と `adsense.readonly` だけを承認した値を Secret として入力します。"
+      }
+    }
+  },
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "cf-types": "wrangler types ./src/worker-configuration.d.ts --strict-vars=false",
+    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm cf-types --check && wrangler deploy --dry-run"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "2.0.0",
+    "agents": "^0.21.0",
+    "hono": "^4.10.0",
+    "jose": "^6.1.0",
+    "zod": "^4.1.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^26.2.0",
+    "eslint": "^10.8.1",
+    "typescript": "^5.9.0",
+    "typescript-eslint": "^8.67.0",
+    "vitest": "^4.0.0",
+    "wrangler": "^4.38.0"
+  }
+}

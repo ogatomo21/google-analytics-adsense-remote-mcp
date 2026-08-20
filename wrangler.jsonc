@@ -1,0 +1,15 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "google-analytics-adsense-remote-mcp",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-21",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "vars": {
+    "CF_ACCESS_TEAM_DOMAIN": "https://example.cloudflareaccess.com",
+    "CF_ACCESS_AUD": "YOUR_ACCESS_APPLICATION_AUDIENCE_TAG"
+  }
+}
