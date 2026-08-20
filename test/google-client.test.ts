@@ -26,10 +26,16 @@ describe("Google API client", () => {
     expect(safeErrorMessage(new Error("refresh=secret"))).not.toContain("secret");
   });
 
-  it("logs only safe diagnostics", () => {
+  it("logs complete diagnostics", () => {
     const logger = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    logGoogleFailure("adsense_read", new GoogleApiError(403));
-    expect(logger).toHaveBeenCalledWith("{\"event\":\"google_request_failed\",\"tool\":\"adsense_read\",\"category\":\"google_api\",\"upstreamStatus\":403}");
+    logGoogleFailure("adsense_read", new GoogleApiError(403, {
+      method: "GET",
+      url: "https://adsense.googleapis.com/v2/accounts?pageSize=10",
+    }, "permission denied"));
+    expect(logger).toHaveBeenCalledWith(expect.stringContaining("\"responseBody\":\"permission denied\""));
+    expect(logger).toHaveBeenCalledWith(expect.stringContaining("\"url\":\"https://adsense.googleapis.com/v2/accounts?pageSize=10\""));
+    expect(logger).toHaveBeenCalledWith(expect.stringContaining("\"name\":\"GoogleApiError\""));
+    expect(logger).toHaveBeenCalledWith(expect.stringContaining("\"stack\":"));
     logger.mockRestore();
   });
 });

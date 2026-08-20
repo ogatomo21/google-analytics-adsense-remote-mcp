@@ -2,18 +2,23 @@ import { GoogleAuthorizationError, getGoogleAccessToken } from "./auth";
 import type { Fetcher } from "./auth";
 import type { AppConfig } from "../config";
 
-export class GoogleApiError extends Error {
-  constructor(public readonly status: number) {
-    super("Google API request failed.");
-  }
-}
-
 export interface GoogleRequest {
   host: "https://analyticsadmin.googleapis.com" | "https://analyticsdata.googleapis.com" | "https://adsense.googleapis.com";
   path: string;
   method: "GET" | "POST";
   query?: Record<string, string>;
   body?: unknown;
+}
+
+export class GoogleApiError extends Error {
+  constructor(
+    public readonly status: number,
+    public readonly request: { method: GoogleRequest["method"]; url: string; body?: unknown },
+    public readonly responseBody: string,
+  ) {
+    super("Google API request failed.");
+    this.name = "GoogleApiError";
+  }
 }
 
 export class GoogleApiClient {
@@ -31,7 +36,13 @@ export class GoogleApiClient {
       },
       ...(request.body === undefined ? {} : { body: JSON.stringify(request.body) }),
     });
-    if (!response.ok) throw new GoogleApiError(response.status);
+    if (!response.ok) {
+      throw new GoogleApiError(response.status, {
+        method: request.method,
+        url: url.toString(),
+        ...(request.body === undefined ? {} : { body: request.body }),
+      }, await response.text());
+    }
     return response.json();
   }
 }
@@ -46,13 +57,9 @@ export function safeErrorMessage(error: unknown): string {
   return "The Google API request could not be completed.";
 }
 
-/**
- * Emit only diagnostics that are safe for Cloudflare Workers Logs. In
- * particular, do not log request paths, query values, error messages, or any
- * credential/token because those can contain private analytics data.
- */
+/** Emit complete Google failure details to the deploying account's Worker logs. */
 export function logGoogleFailure(tool: string, error: unknown): void {
-  const diagnostic: Record<string, string | number> = {
+  const diagnostic: Record<string, unknown> = {
     event: "google_request_failed",
     tool,
   };
@@ -64,7 +71,25 @@ export function logGoogleFailure(tool: string, error: unknown): void {
     diagnostic.upstreamStatus = error.status;
   } else {
     diagnostic.category = "unexpected";
-    if (error instanceof Error) diagnostic.errorName = error.name;
   }
+  diagnostic.error = errorDetails(error);
   console.error(JSON.stringify(diagnostic));
+}
+
+function errorDetails(error: unknown): Record<string, unknown> {
+  if (error instanceof Error) {
+    return {
+      ...Object.fromEntries(Object.getOwnPropertyNames(error)
+        .filter((property) => property !== "name" && property !== "message" && property !== "stack")
+        .map((property) => [property, serializeErrorProperty(Reflect.get(error, property))])),
+      name: error.name,
+      message: error.message,
+      ...(error.stack === undefined ? {} : { stack: error.stack }),
+    };
+  }
+  return { thrown: error };
+}
+
+function serializeErrorProperty(value: unknown): unknown {
+  return value instanceof Error ? errorDetails(value) : value;
 }

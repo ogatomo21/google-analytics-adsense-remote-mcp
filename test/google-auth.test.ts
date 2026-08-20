@@ -14,7 +14,11 @@ describe("Google refresh-token exchange", () => {
     expect(String(init.body)).toContain("refresh_token=refresh");
   });
 
-  it("returns a safe error for authorization failures", async () => {
-    await expect(getGoogleAccessToken(config, vi.fn().mockResolvedValue(new Response("no", { status: 400 })))).rejects.toBeInstanceOf(GoogleAuthorizationError);
+  it("retains the complete authorization failure body for Worker logs", async () => {
+    await expect(getGoogleAccessToken(config, vi.fn().mockResolvedValue(new Response("invalid_grant", { status: 400 })))).rejects.toMatchObject({
+      constructor: GoogleAuthorizationError,
+      status: 400,
+      responseBody: "invalid_grant",
+    });
   });
 });

@@ -3,8 +3,12 @@ import type { AppConfig } from "../config";
 export type Fetcher = typeof fetch;
 
 export class GoogleAuthorizationError extends Error {
-  constructor(public readonly status?: number) {
+  constructor(
+    public readonly status?: number,
+    public readonly responseBody?: string,
+  ) {
     super("Google authorization failed.");
+    this.name = "GoogleAuthorizationError";
   }
 }
 
@@ -20,7 +24,7 @@ export async function getGoogleAccessToken(config: Pick<AppConfig, "googleClient
     headers: { "content-type": "application/x-www-form-urlencoded" },
     body,
   });
-  if (!response.ok) throw new GoogleAuthorizationError(response.status);
+  if (!response.ok) throw new GoogleAuthorizationError(response.status, await response.text());
   const payload: unknown = await response.json();
   if (!isAccessTokenPayload(payload)) throw new GoogleAuthorizationError();
   return payload.access_token;

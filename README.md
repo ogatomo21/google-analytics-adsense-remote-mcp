@@ -31,7 +31,7 @@ Cloudflare Workers 上で動く、GA4 と AdSense Management API v2 の**読み�
 - `adsense_generate_report`
 - `adsense_read`: AdSense Management API v2 の `accounts` 配下の GET/list 操作。
 
-すべてのツールは read-only として MCP に注釈付けされ、入力は Zod で検証されます。外部 URL、任意 HTTP ヘッダー、POST/PUT/PATCH/DELETE の任意実行は受け付けません。Google の生エラー・access token・refresh token・client secret は応答にもログにも含めません。
+すべてのツールは read-only として MCP に注釈付けされ、入力は Zod で検証されます。外部 URL、任意 HTTP ヘッダー、POST/PUT/PATCH/DELETE の任意実行は受け付けません。Google の生エラーは MCP 応答には含めませんが、障害調査のためデプロイ先 Cloudflare アカウントの Worker Logs には完全な内容を出力します。
 
 ## Google OAuth の準備
 
@@ -134,13 +134,13 @@ pnpm check
 
 ### Google API の障害調査
 
-Google API の失敗時には、Worker が Cloudflare Workers Logs へ JSON の診断イベントを出力します。request path・クエリ・Google の生エラー・client secret・access token・refresh token は出力しません。
+Google API の失敗時には、Worker が Cloudflare Workers Logs へ JSON の診断イベントを出力します。Google の HTTP 応答本文、リクエスト URL・本文、例外名・メッセージ・スタックトレースを省略せず出力します。これはデプロイ先の Cloudflare アカウントのログ閲覧者だけが見られるデバッグ用設定です。ログの外部転送、共有、公開を行う場合は、事前にこの詳細ログを無効化してください。MCP 応答には引き続き含めません。
 
 ```powershell
 pnpm wrangler tail --format json
 ```
 
-例: `{"event":"google_request_failed","tool":"ga4_run_report","category":"google_api","upstreamStatus":403}`。`oauth_refresh` は refresh token の更新失敗、`google_api` は GA4 / AdSense API の拒否、`unexpected` はネットワーク等の予期しない失敗です。
+例: `{"event":"google_request_failed","tool":"ga4_run_report","category":"google_api","upstreamStatus":403,"error":{"request":{"url":"..."},"responseBody":"...","stack":"..."}}`。`oauth_refresh` は refresh token の更新失敗、`google_api` は GA4 / AdSense API の拒否、`unexpected` はネットワーク等の予期しない失敗です。
 
 ## ライセンス
 
