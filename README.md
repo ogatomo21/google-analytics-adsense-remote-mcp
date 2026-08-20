@@ -132,6 +132,16 @@ pnpm check
 
 `check` は ESLint、TypeScript、Vitest、Worker binding 型同期、`wrangler deploy --dry-run` を順に実行します。実 Google アカウントへの問い合わせは自動テストしません。デプロイ後に Access を通して Inspector と利用する MCP クライアントで、GA4 report と AdSense report を 1 件ずつ実行してください。
 
+### Google API の障害調査
+
+Google API の失敗時には、Worker が Cloudflare Workers Logs へ JSON の診断イベントを出力します。request path・クエリ・Google の生エラー・client secret・access token・refresh token は出力しません。
+
+```powershell
+pnpm wrangler tail --format json
+```
+
+例: `{"event":"google_request_failed","tool":"ga4_run_report","category":"google_api","upstreamStatus":403}`。`oauth_refresh` は refresh token の更新失敗、`google_api` は GA4 / AdSense API の拒否、`unexpected` はネットワーク等の予期しない失敗です。
+
 ## ライセンス
 
 MIT License

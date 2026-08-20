@@ -45,3 +45,26 @@ export function safeErrorMessage(error: unknown): string {
   }
   return "The Google API request could not be completed.";
 }
+
+/**
+ * Emit only diagnostics that are safe for Cloudflare Workers Logs. In
+ * particular, do not log request paths, query values, error messages, or any
+ * credential/token because those can contain private analytics data.
+ */
+export function logGoogleFailure(tool: string, error: unknown): void {
+  const diagnostic: Record<string, string | number> = {
+    event: "google_request_failed",
+    tool,
+  };
+  if (error instanceof GoogleAuthorizationError) {
+    diagnostic.category = "oauth_refresh";
+    if (error.status !== undefined) diagnostic.upstreamStatus = error.status;
+  } else if (error instanceof GoogleApiError) {
+    diagnostic.category = "google_api";
+    diagnostic.upstreamStatus = error.status;
+  } else {
+    diagnostic.category = "unexpected";
+    if (error instanceof Error) diagnostic.errorName = error.name;
+  }
+  console.error(JSON.stringify(diagnostic));
+}

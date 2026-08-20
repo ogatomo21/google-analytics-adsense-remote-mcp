@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { logGoogleFailure, safeErrorMessage } from "../google/client";
+
 export const MAX_RESULT_CHARACTERS = 100_000;
 export const querySchema = z.record(z.string().trim().min(1).max(100), z.string().trim().max(2_000)).superRefine((query, context) => {
   for (const [key, value] of Object.entries(query)) {
@@ -26,6 +28,11 @@ export function jsonToolResult(value: unknown) {
 
 export function toolError(message: string) {
   return { content: [{ type: "text" as const, text: message }], isError: true };
+}
+
+export function googleToolError(tool: string, error: unknown) {
+  logGoogleFailure(tool, error);
+  return toolError(safeErrorMessage(error));
 }
 
 export const readOnlyAnnotations = { readOnlyHint: true } as const;

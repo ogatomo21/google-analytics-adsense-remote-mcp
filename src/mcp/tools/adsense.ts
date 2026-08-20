@@ -2,8 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 
 import type { GoogleApiClient } from "../../google/client";
-import { safeErrorMessage } from "../../google/client";
-import { jsonToolResult, querySchema, readOnlyAnnotations, toolError } from "../shared";
+import { googleToolError, jsonToolResult, querySchema, readOnlyAnnotations } from "../shared";
 
 const accountNameSchema = z.string().trim().regex(/^accounts\/[A-Za-z0-9_-]+$/).max(300);
 const pathSegmentSchema = z.string().regex(/^[A-Za-z0-9_:-]+$/).max(300);
@@ -39,7 +38,7 @@ export function registerAdSenseTools(server: McpServer, client: GoogleApiClient)
         query: encodeReportQuery(query),
       }));
     } catch (error) {
-      return toolError(safeErrorMessage(error));
+      return googleToolError("adsense_generate_report", error);
     }
   });
 
@@ -52,7 +51,7 @@ export function registerAdSenseTools(server: McpServer, client: GoogleApiClient)
         ...(query === undefined ? {} : { query }),
       }));
     } catch (error) {
-      return toolError(safeErrorMessage(error));
+      return googleToolError("adsense_read", error);
     }
   });
 }

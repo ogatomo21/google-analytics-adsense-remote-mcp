@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { GoogleApiClient, safeErrorMessage } from "../src/google/client";
+import { GoogleApiClient, GoogleApiError, logGoogleFailure, safeErrorMessage } from "../src/google/client";
 
 const config = {
   accessTeamDomain: "https://team.cloudflareaccess.com",
@@ -24,5 +24,12 @@ describe("Google API client", () => {
 
   it("does not expose raw upstream messages", () => {
     expect(safeErrorMessage(new Error("refresh=secret"))).not.toContain("secret");
+  });
+
+  it("logs only safe diagnostics", () => {
+    const logger = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    logGoogleFailure("adsense_read", new GoogleApiError(403));
+    expect(logger).toHaveBeenCalledWith("{\"event\":\"google_request_failed\",\"tool\":\"adsense_read\",\"category\":\"google_api\",\"upstreamStatus\":403}");
+    logger.mockRestore();
   });
 });

@@ -2,8 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 
 import type { GoogleApiClient } from "../../google/client";
-import { safeErrorMessage } from "../../google/client";
-import { jsonToolResult, querySchema, readOnlyAnnotations, toolError } from "../shared";
+import { googleToolError, jsonToolResult, querySchema, readOnlyAnnotations } from "../shared";
 
 const propertyIdSchema = z.string().trim().regex(/^\d+$/, "must be a numeric GA4 Property ID").max(30);
 const reportLimitSchema = z.union([z.string().regex(/^\d+$/), z.number().int().min(1).max(10_000)]).transform(String).refine((value) => Number(value) >= 1 && Number(value) <= 10_000, "must be between 1 and 10000");
@@ -62,7 +61,7 @@ export function registerGa4Tools(server: McpServer, client: GoogleApiClient): vo
           body: request,
         }));
       } catch (error) {
-        return toolError(safeErrorMessage(error));
+        return googleToolError(name, error);
       }
     });
   }
@@ -76,7 +75,7 @@ export function registerGa4Tools(server: McpServer, client: GoogleApiClient): vo
         body: request,
       }));
     } catch (error) {
-      return toolError(safeErrorMessage(error));
+      return googleToolError("ga4_run_funnel_report", error);
     }
   });
 
@@ -84,7 +83,7 @@ export function registerGa4Tools(server: McpServer, client: GoogleApiClient): vo
     try {
       return jsonToolResult(await client.request({ host: "https://analyticsdata.googleapis.com", path: `/v1beta/properties/${propertyId}/metadata`, method: "GET" }));
     } catch (error) {
-      return toolError(safeErrorMessage(error));
+      return googleToolError("ga4_get_metadata", error);
     }
   });
 
@@ -92,7 +91,7 @@ export function registerGa4Tools(server: McpServer, client: GoogleApiClient): vo
     try {
       return jsonToolResult(await client.request({ host: "https://analyticsdata.googleapis.com", path: `/v1beta/properties/${propertyId}:checkCompatibility`, method: "POST", body: request }));
     } catch (error) {
-      return toolError(safeErrorMessage(error));
+      return googleToolError("ga4_check_compatibility", error);
     }
   });
 
@@ -105,7 +104,7 @@ export function registerGa4Tools(server: McpServer, client: GoogleApiClient): vo
         ...(query === undefined ? {} : { query }),
       }));
     } catch (error) {
-      return toolError(safeErrorMessage(error));
+      return googleToolError("ga4_admin_read", error);
     }
   });
 }
