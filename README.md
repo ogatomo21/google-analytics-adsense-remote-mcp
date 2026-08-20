@@ -37,10 +37,52 @@ Cloudflare Workers 上で動く、GA4 と AdSense Management API v2 の**読み�
 
 1. Google Cloud Project で **Google Analytics Data API**、**Google Analytics Admin API**、**AdSense Management API** を有効にします。
 2. OAuth consent screen を設定し、GA4 の `https://www.googleapis.com/auth/analytics.readonly` と AdSense の `https://www.googleapis.com/auth/adsense.readonly` だけを要求します。
-3. AdSense の要件に従い Installed Application flow で OAuth client と refresh token を発行します。Google API Explorer / OAuth Playground を使う場合も、この read-only 2 scope のみを承認してください。
+3. Credentials で OAuth Client ID を作成し、Application type は **Desktop app** を選択します。AdSense は service account 非対応で、Installed Application flow が必要です。
 4. refresh token は再表示できない場合があるため、発行時に安全なパスワードマネージャーへ保管します。リポジトリ、Issue、CI log、`wrangler.jsonc` に置いてはいけません。
 
 Google は access token を短時間で失効させます。Worker は各 MCP ツール実行時に refresh token grant を使って access token を再取得するため、Worker が token を永続保存する必要はありません。
+
+### Python で refresh token を発行する
+
+Python 3.10 以降だけで動作し、追加パッケージは不要です。`scripts/get_google_refresh_token.py` は PKCE を使ってローカル callback を待ち受け、資格情報・access token・refresh token をファイルへ保存しません。
+
+#### Google Cloud Console の redirect URI 設定
+
+この Worker は Google から直接 callback を受けません。Credentials で作成する OAuth client は必ず **Desktop app** にしてください。Desktop app では Cloud Console の **Authorized redirect URIs** や **Authorized JavaScript origins** を設定する必要はありません。
+
+Python スクリプトは実行時に空いているローカル port を選び、例えば次のような loopback redirect URI を Google へ送ります。
+
+```text
+http://127.0.0.1:54321/callback/
+```
+
+これは Google が Desktop app 用に許可する loopback callback です。`https://<worker-host>/callback`、`https://<worker-host>/mcp`、Cloudflare Access の URL を Google OAuth client の redirect URI として登録してはいけません。また、Web application 型の OAuth client でこのスクリプトを使うことも避けてください。
+
+```powershell
+python scripts/get_google_refresh_token.py
+```
+
+`GOOGLE_CLIENT_ID` と `GOOGLE_CLIENT_SECRET` の入力を求められます。ブラウザで、Worker が使う Google アカウントにログインし、次の **read-only** scope だけを承認してください。
+
+ブラウザ承認を取り消したい場合は、待受中のターミナルで `Ctrl+C` を押してください。ローカル callback listener を閉じ、token を保存せず終了します。
+
+- `https://www.googleapis.com/auth/analytics.readonly`
+- `https://www.googleapis.com/auth/adsense.readonly`
+
+成功時に表示される1行だけをコピーし、Deploy Button の `GOOGLE_REFRESH_TOKEN` Secret 欄、または次の対話コマンドへ入力します。
+
+```powershell
+pnpm wrangler secret put GOOGLE_REFRESH_TOKEN
+```
+
+Client ID / secret も未設定なら同様に設定します。
+
+```powershell
+pnpm wrangler secret put GOOGLE_CLIENT_ID
+pnpm wrangler secret put GOOGLE_CLIENT_SECRET
+```
+
+Google OAuth consent screen が External + Testing のままだと refresh token は通常7日で失効します。継続利用する前に Production へ移行し、Google が求める verification を完了してください。`invalid_grant` が発生した場合は、Google アカウントで本アプリのアクセスを取り消してからこのスクリプトを再実行し、Worker Secret を更新します。
 
 ## ローカル開発
 
