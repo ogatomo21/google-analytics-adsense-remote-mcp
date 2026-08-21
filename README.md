@@ -15,6 +15,12 @@ Cloudflare Workers 上で動く、GA4 と AdSense Management API v2 の**読み�
 
 `GOOGLE_REFRESH_TOKEN` はボタンを押す前に、後述の手順で read-only scope だけを承認して発行してください。Cloudflare Access Application と Managed OAuth の有効化はデプロイ後に利用者自身で行います。
 
+### 元リポジトリ更新の取り込み
+
+ワンクリックデプロイで作られたコピーでは、毎日 04:23 UTC に元リポジトリの `main` を確認します。差分があれば `chore/sync-upstream` ブランチにマージし、`main` 向けのPRを作成または更新します。PRのマージは自動では行いません。
+
+この同期は、元リポジトリ `ogatomo21/google-analytics-adsense-remote-mcp` 自身では実行されません。コピー側ではGitHubの **Settings > Actions > General** で、workflow の `GITHUB_TOKEN` にPR作成を許可し、`main` はブランチ保護でレビュー必須にしてください。Worker名やCloudflare Access設定が競合した場合、同期は停止するため、PRまたはActionsログで内容を確認してから手動で解消します。
+
 ## エンドポイント
 
 | Endpoint | 認証 | 内容 |
@@ -30,6 +36,20 @@ Cloudflare Workers 上で動く、GA4 と AdSense Management API v2 の**読み�
 - `ga4_admin_read`: GA4 Admin API v1alpha の `accountSummaries`、`accounts`、`properties` 配下の GET/list 操作。
 - `adsense_generate_report`
 - `adsense_read`: AdSense Management API v2 の `accounts` 配下の GET/list 操作。
+
+`adsense_generate_report` の日付は AdSense v2 `Date` に合わせて、`year`、`month`、`day` を指定します。`metrics`、`dimensions`、`filters`、`orderBy` は配列で渡され、Google へのURLでは同じキーを繰り返して送信されます。
+
+```json
+{
+  "account": "accounts/pub-1234567890",
+  "query": {
+    "startDate": { "year": 2026, "month": 8, "day": 1 },
+    "endDate": { "year": 2026, "month": 8, "day": 31 },
+    "metrics": ["ESTIMATED_EARNINGS", "CLICKS"],
+    "dimensions": ["DATE"]
+  }
+}
+```
 
 すべてのツールは read-only として MCP に注釈付けされ、入力は Zod で検証されます。外部 URL、任意 HTTP ヘッダー、POST/PUT/PATCH/DELETE の任意実行は受け付けません。Google の生エラーは MCP 応答には含めませんが、障害調査のためデプロイ先 Cloudflare アカウントの Worker Logs には完全な内容を出力します。
 

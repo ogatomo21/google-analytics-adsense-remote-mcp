@@ -29,6 +29,22 @@ describe("Google API client", () => {
     expect(init.headers).toMatchObject({ authorization: "Bearer access" });
   });
 
+  it("repeats array-valued query parameters", async () => {
+    const fetcher = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: "access" }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ rows: [] }), { status: 200 }));
+    const client = new GoogleApiClient(config, fetcher);
+    await client.request({
+      host: "https://adsense.googleapis.com",
+      path: "/v2/accounts/pub-123/reports:generate",
+      method: "GET",
+      query: { metrics: ["ESTIMATED_EARNINGS", "CLICKS"], dimensions: ["DATE", "COUNTRY_NAME"] },
+    });
+    const [url] = fetcher.mock.calls[1] as unknown as [URL];
+    expect(url.searchParams.getAll("metrics")).toEqual(["ESTIMATED_EARNINGS", "CLICKS"]);
+    expect(url.searchParams.getAll("dimensions")).toEqual(["DATE", "COUNTRY_NAME"]);
+  });
+
   it("does not expose raw upstream messages", () => {
     expect(safeErrorMessage(new Error("refresh=secret"))).not.toContain("secret");
   });

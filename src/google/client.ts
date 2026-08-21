@@ -6,7 +6,7 @@ export interface GoogleRequest {
   host: "https://analyticsadmin.googleapis.com" | "https://analyticsdata.googleapis.com" | "https://adsense.googleapis.com";
   path: string;
   method: "GET" | "POST";
-  query?: Record<string, string>;
+  query?: Record<string, string | readonly string[]>;
   body?: unknown;
 }
 
@@ -27,7 +27,13 @@ export class GoogleApiClient {
   async request(request: GoogleRequest): Promise<unknown> {
     const accessToken = await getGoogleAccessToken(this.config, this.fetcher);
     const url = new URL(request.path, request.host);
-    for (const [key, value] of Object.entries(request.query ?? {})) url.searchParams.set(key, value);
+    for (const [key, value] of Object.entries(request.query ?? {})) {
+      if (typeof value === "string") {
+        url.searchParams.set(key, value);
+      } else {
+        for (const item of value) url.searchParams.append(key, item);
+      }
+    }
     const response = await this.fetcher.call(globalThis, url, {
       method: request.method,
       headers: {

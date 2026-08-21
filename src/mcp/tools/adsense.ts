@@ -6,19 +6,28 @@ import { googleToolError, jsonToolResult, querySchema, readOnlyAnnotations } fro
 
 const accountNameSchema = z.string().trim().regex(/^accounts\/[A-Za-z0-9_-]+$/).max(300);
 const pathSegmentSchema = z.string().regex(/^[A-Za-z0-9_:-]+$/).max(300);
+const dateSchema = z.object({
+  year: z.number().int().min(1).max(9_999),
+  month: z.number().int().min(1).max(12),
+  day: z.number().int().min(1).max(31),
+}).strict().superRefine((date, context) => {
+  const daysInMonth = [31, date.year % 4 === 0 && (date.year % 100 !== 0 || date.year % 400 === 0) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][date.month - 1];
+  if (daysInMonth !== undefined && date.day > daysInMonth) {
+    context.addIssue({ code: "custom", path: ["day"], message: "must be valid for the given year and month" });
+  }
+});
 
 export const adsenseGenerateReportInputSchema = z.object({
   account: accountNameSchema,
   query: z.object({
-    startDate: z.string().trim().min(1).max(30),
-    endDate: z.string().trim().min(1).max(30),
+    startDate: dateSchema,
+    endDate: dateSchema,
     metrics: z.array(z.string().trim().min(1).max(100)).min(1).max(20),
     dimensions: z.array(z.string().trim().min(1).max(100)).max(10).optional(),
     filters: z.array(z.string().trim().min(1).max(500)).max(20).optional(),
     orderBy: z.array(z.string().trim().min(1).max(200)).max(10).optional(),
     limit: z.number().int().min(1).max(10_000).optional(),
-    startIndex: z.number().int().min(0).max(1_000_000).optional(),
-    locale: z.string().trim().min(2).max(30).optional(),
+    languageCode: z.string().trim().min(2).max(30).optional(),
     currencyCode: z.string().trim().regex(/^[A-Z]{3}$/).optional(),
   }).strict(),
 }).strict();
@@ -35,7 +44,7 @@ export function registerAdSenseTools(server: McpServer, client: GoogleApiClient)
         host: "https://adsense.googleapis.com",
         path: `/v2/${account}/reports:generate`,
         method: "GET",
-        query: encodeReportQuery(query),
+        query: encodeAdSenseReportQuery(query),
       }));
     } catch (error) {
       return googleToolError("adsense_generate_report", error);
@@ -56,18 +65,21 @@ export function registerAdSenseTools(server: McpServer, client: GoogleApiClient)
   });
 }
 
-function encodeReportQuery(query: z.infer<typeof adsenseGenerateReportInputSchema>["query"]): Record<string, string> {
-  const output: Record<string, string> = {
-    startDate: query.startDate,
-    endDate: query.endDate,
-    metrics: query.metrics.join(","),
+export function encodeAdSenseReportQuery(query: z.infer<typeof adsenseGenerateReportInputSchema>["query"]): Record<string, string | readonly string[]> {
+  const output: Record<string, string | readonly string[]> = {
+    "startDate.year": String(query.startDate.year),
+    "startDate.month": String(query.startDate.month),
+    "startDate.day": String(query.startDate.day),
+    "endDate.year": String(query.endDate.year),
+    "endDate.month": String(query.endDate.month),
+    "endDate.day": String(query.endDate.day),
+    metrics: query.metrics,
   };
-  if (query.dimensions) output.dimensions = query.dimensions.join(",");
-  if (query.filters) output.filters = query.filters.join(",");
-  if (query.orderBy) output.orderBy = query.orderBy.join(",");
+  if (query.dimensions) output.dimensions = query.dimensions;
+  if (query.filters) output.filters = query.filters;
+  if (query.orderBy) output.orderBy = query.orderBy;
   if (query.limit !== undefined) output.limit = String(query.limit);
-  if (query.startIndex !== undefined) output.startIndex = String(query.startIndex);
-  if (query.locale) output.locale = query.locale;
+  if (query.languageCode) output.languageCode = query.languageCode;
   if (query.currencyCode) output.currencyCode = query.currencyCode;
   return output;
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { adsenseGenerateReportInputSchema, adsenseReadInputSchema } from "../src/mcp/tools/adsense";
+import { adsenseGenerateReportInputSchema, adsenseReadInputSchema, encodeAdSenseReportQuery } from "../src/mcp/tools/adsense";
 import { ga4AdminReadInputSchema, ga4FunnelInputSchema, ga4ReportInputSchema } from "../src/mcp/tools/ga4";
 
 describe("tool schemas", () => {
@@ -28,6 +28,47 @@ describe("tool schemas", () => {
   });
 
   it("accepts a bounded AdSense report", () => {
-    expect(adsenseGenerateReportInputSchema.safeParse({ account: "accounts/pub-123", query: { startDate: "2026-01-01", endDate: "2026-01-31", metrics: ["ESTIMATED_EARNINGS"] } }).success).toBe(true);
+    const result = adsenseGenerateReportInputSchema.safeParse({
+      account: "accounts/pub-123",
+      query: {
+        startDate: { year: 2026, month: 1, day: 1 },
+        endDate: { year: 2026, month: 1, day: 31 },
+        metrics: ["ESTIMATED_EARNINGS", "CLICKS"],
+        dimensions: ["DATE", "COUNTRY_NAME"],
+      },
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(encodeAdSenseReportQuery(result.data.query)).toEqual({
+        "startDate.year": "2026",
+        "startDate.month": "1",
+        "startDate.day": "1",
+        "endDate.year": "2026",
+        "endDate.month": "1",
+        "endDate.day": "31",
+        metrics: ["ESTIMATED_EARNINGS", "CLICKS"],
+        dimensions: ["DATE", "COUNTRY_NAME"],
+      });
+    }
+  });
+
+  it("rejects invalid AdSense dates and legacy report fields", () => {
+    expect(adsenseGenerateReportInputSchema.safeParse({
+      account: "accounts/pub-123",
+      query: {
+        startDate: { year: 2026, month: 2, day: 29 },
+        endDate: { year: 2026, month: 3, day: 1 },
+        metrics: ["ESTIMATED_EARNINGS"],
+      },
+    }).success).toBe(false);
+    expect(adsenseGenerateReportInputSchema.safeParse({
+      account: "accounts/pub-123",
+      query: {
+        startDate: { year: 2026, month: 1, day: 1 },
+        endDate: { year: 2026, month: 1, day: 31 },
+        metrics: ["ESTIMATED_EARNINGS"],
+        locale: "ja",
+      },
+    }).success).toBe(false);
   });
 });
